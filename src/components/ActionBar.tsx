@@ -62,23 +62,10 @@ export function ActionBar({
           disabled={isLoading}
           className="flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 active:scale-95 transition-all shadow-md"
           aria-label="Shuffle pickup line"
-          title="Shuffle (Spacebar)"
+          title="Shuffle"
         >
           <Shuffle className="w-5 h-5 text-zinc-300" />
         </button>
-      </div>
-
-      {/* Keyboard navigation hint */}
-      <div className="hidden sm:flex items-center justify-center gap-2 text-[11px] text-zinc-500 font-medium">
-        <span>Press</span>
-        <kbd className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 font-mono text-[10px] text-zinc-400">
-          Space
-        </kbd>
-        <span>or</span>
-        <kbd className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 font-mono text-[10px] text-zinc-400">
-          →
-        </kbd>
-        <span>for next</span>
       </div>
     </div>
   );
