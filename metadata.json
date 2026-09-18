@@ -1,0 +1,6 @@
+{
+  "name": "Pickup Line Generator",
+  "description": "A minimalist, mobile-friendly random pickup line generator with API fetching, categories, rizz ratings, and saved favorites.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

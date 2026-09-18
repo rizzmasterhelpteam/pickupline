@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="rizzFavBg" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#18181b" />
+      <stop offset="1" stop-color="#09090b" />
+    </linearGradient>
+
+    <!-- Heart Bubble 3D Linear Gradient -->
+    <linearGradient id="rizzHeartFavGrad" x1="88" y1="15" x2="30" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFA185" />
+      <stop offset="25%" stop-color="#FF4B7E" />
+      <stop offset="65%" stop-color="#E6007A" />
+      <stop offset="100%" stop-color="#870068" />
+    </linearGradient>
+
+    <!-- Gloss Highlight -->
+    <linearGradient id="rizzGlossFav" x1="36" y1="20" x2="46" y2="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.8" />
+      <stop offset="40%" stop-color="#FFFFFF" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <!-- App Rounded Tile Container -->
+  <rect width="100" height="100" rx="26" fill="url(#rizzFavBg)" />
+  <rect x="1.5" y="1.5" width="97" height="97" rx="24.5" stroke="#FF4B7E" stroke-opacity="0.35" stroke-width="2" />
+
+  <!-- 3 Speed Motion Streaks -->
+  <rect x="19" y="33" width="9" height="3.5" rx="1.75" fill="#FF3B7A" transform="rotate(-28 23.5 34.75)" />
+  <rect x="21" y="43" width="8.5" height="3.5" rx="1.75" fill="#FF4F7E" transform="rotate(-38 25.25 44.75)" />
+  <rect x="27" y="51" width="7.5" height="3.2" rx="1.6" fill="#D6186E" transform="rotate(-48 30.75 52.6)" />
+
+  <!-- Heart Speech Bubble -->
+  <path
+    d="M 54 28.5
+       C 56.5 24 62.5 19 72 19
+       C 83 19 89 27 89 38
+       C 89 51 77 61 61.5 68.5
+       C 58 70.2 55 71 52.5 71.2
+       C 49.5 71 45 68.5 42.5 66.5
+       L 35.5 73.8
+       C 34.4 74.8 32.8 74.2 33 72.8
+       L 35.2 62.2
+       C 30 56.5 26.5 48 26.5 38
+       C 26.5 27 32.5 19 43.5 19
+       C 49.5 19 52.5 24 54 28.5 Z"
+    fill="url(#rizzHeartFavGrad)"
+  />
+
+  <!-- Glossy Reflection Highlight -->
+  <path
+    d="M 32 37
+       C 30.5 30 34 22 43 21
+       C 47.5 21 50 23 51.5 26
+       C 47 23.5 41 24.5 37 28
+       C 34 30.8 32.8 34 32.5 37.5
+       Z"
+    fill="url(#rizzGlossFav)"
+  />
+  <ellipse cx="40" cy="27" rx="7" ry="3.8" transform="rotate(-35 40 27)" fill="url(#rizzGlossFav)" />
+
+  <!-- 3 White Chat Bubble Dots -->
+  <circle cx="45" cy="44" r="3.6" fill="#FFFFFF" />
+  <circle cx="54" cy="44" r="3.6" fill="#FFFFFF" />
+  <circle cx="63" cy="44" r="3.6" fill="#FFFFFF" />
+</svg>
