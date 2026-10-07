@@ -1,6 +1,7 @@
-import { motion } from 'motion/react';
+import { memo, useEffect, useRef } from 'react';
 import { CATEGORIES, LINES_BY_CATEGORY, CURATED_PICKUP_LINES } from '../data/curatedLines';
 import { CategoryKey } from '../types';
+import { tapFeedback } from '../utils/haptics';
 
 interface CategoryBarProps {
   selectedCategory: CategoryKey;
@@ -90,30 +91,44 @@ const CATEGORY_STYLES: Record<string, {
   },
 };
 
-export function CategoryBar({ selectedCategory, onSelectCategory }: CategoryBarProps) {
+export const CategoryBar = memo(function CategoryBar({ selectedCategory, onSelectCategory }: CategoryBarProps) {
   const currentCategoryObj = CATEGORIES.find(c => c.id === selectedCategory) || CATEGORIES[0];
+  const railRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const activePill = railRef.current?.querySelector<HTMLElement>(`#cat-pill-${selectedCategory}`);
+    const rail = railRef.current;
+    if (rail && activePill) rail.scrollTo({
+      left: activePill.offsetLeft - rail.offsetLeft - (rail.clientWidth - activePill.clientWidth) / 2,
+      behavior: window.matchMedia('(pointer: coarse), (prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    });
+  }, [selectedCategory]);
 
   return (
-    <div className="w-full px-4 py-1.5 select-none space-y-1.5">
+    <div className="w-full min-w-0 shrink-0 px-4 py-1 select-none sm:px-6">
       {/* Compact Section Header */}
-      <div className="flex items-center justify-between px-0.5 text-[10px]">
-        <div className="flex items-center gap-1.5">
-          <span className="font-bold text-zinc-400 uppercase tracking-wider text-[9px]">
+      <div className="mb-2 flex items-center justify-between px-0.5 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-bold text-zinc-500 uppercase tracking-wider text-xs">
             Vibe
           </span>
           <span className="text-zinc-600">•</span>
-          <span className="font-semibold text-rose-400">
+          <span className="font-semibold text-rose-400 truncate">
             {currentCategoryObj.emoji} {currentCategoryObj.label}
           </span>
         </div>
 
-        <span className="font-mono text-zinc-400 text-[9px]">
+        <span className="font-mono text-zinc-500 text-xs shrink-0">
           8 Vibes
         </span>
       </div>
 
-      {/* Sleek, Smaller Category Buttons Grid */}
-      <div className="grid grid-cols-4 gap-1">
+      {/* Screenshot-matched horizontal vibe rail */}
+      <div
+        ref={railRef}
+        className="no-scrollbar flex min-w-0 snap-x snap-proximity gap-2 overflow-x-auto overscroll-x-contain px-0.5 pb-1"
+        style={{ scrollbarGutter: 'stable' }}
+      >
         {CATEGORIES.map((cat) => {
           const isSelected = selectedCategory === cat.id;
           const count = cat.id === 'all'
@@ -127,36 +142,35 @@ export function CategoryBar({ selectedCategory, onSelectCategory }: CategoryBarP
               id={`cat-pill-${cat.id}`}
               type="button"
               onClick={() => {
-                if (navigator.vibrate) navigator.vibrate(10);
+                tapFeedback();
                 onSelectCategory(cat.id);
               }}
-              className={`relative flex items-center justify-center gap-1 px-1.5 py-1 rounded-lg text-center transition-all duration-150 active:scale-95 group ${
+              aria-pressed={isSelected}
+              className={`relative shrink-0 snap-center min-w-[6.7rem] h-11 overflow-hidden flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[1.25rem] text-center transition-[color,border-color,background-color,box-shadow] duration-100 active:scale-[0.97] group ${
                 isSelected
                   ? `${style.activeBg} ${style.activeBorder} border ${style.activeText} ${style.glow} shadow-sm`
                   : `bg-zinc-900/70 ${style.inactiveBorder} border ${style.hoverBorder} text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900`
               }`}
             >
               {isSelected && (
-                <motion.div
-                  layoutId="activeCategoryBorder"
-                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                  className="absolute -inset-0.5 rounded-lg bg-white/20 pointer-events-none -z-10"
+                <span
+                  className="absolute -inset-0.5 rounded-[1.35rem] bg-white/20 pointer-events-none -z-10"
                 />
               )}
 
               {/* Emoji */}
-              <span className="text-xs shrink-0 drop-shadow-sm">
+              <span className="text-lg shrink-0 drop-shadow-sm">
                 {cat.emoji}
               </span>
 
               {/* Label */}
-              <span className="text-[10px] font-semibold tracking-tight truncate">
+              <span className="min-w-0 text-xs font-semibold tracking-tight truncate">
                 {cat.label}
               </span>
 
               {/* Count */}
               <span
-                className={`text-[8px] font-mono px-1 py-0.2 rounded leading-none shrink-0 font-medium ${
+                className={`hidden sm:inline-flex text-[8px] font-mono px-1 py-0.2 rounded leading-none shrink-0 font-medium ${
                   isSelected
                     ? style.activeBadge
                     : 'bg-zinc-800 text-zinc-400'
@@ -170,4 +184,4 @@ export function CategoryBar({ selectedCategory, onSelectCategory }: CategoryBarP
       </div>
     </div>
   );
-}
+});

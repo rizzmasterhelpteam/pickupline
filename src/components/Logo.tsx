@@ -3,13 +3,19 @@ import React from 'react';
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
+  showBadge?: boolean;
+  showSubtitle?: boolean;
   variant?: 'horizontal' | 'vertical' | 'icon-only';
   className?: string;
 }
 
+const BRAND_LOGO_SRC = '/rizzline-logo.png';
+
 export function Logo({
   size = 'md',
   showText = true,
+  showBadge = true,
+  showSubtitle = true,
   variant = 'horizontal',
   className = '',
 }: LogoProps) {
@@ -57,7 +63,15 @@ export function Logo({
       {/* Heart Speech Bubble 3D Icon Mark */}
       <div className="relative group/logo cursor-pointer shrink-0">
         {/* Soft Ambient Glow Aura matching pink/coral gradient */}
-        <div className="absolute -inset-1.5 bg-gradient-to-tr from-rose-600 via-pink-500 to-amber-400 rounded-full blur-md opacity-40 group-hover/logo:opacity-75 transition-opacity duration-300 pointer-events-none" />
+        <div className="hidden absolute -inset-1.5 bg-gradient-to-tr from-rose-600 via-pink-500 to-amber-400 rounded-full blur-md opacity-40 group-hover/logo:opacity-75 transition-opacity duration-300 pointer-events-none" />
+
+        <img
+          src={BRAND_LOGO_SRC}
+          alt={showText ? '' : 'RizzLine logo'}
+          width={config.svgSize}
+          height={config.svgSize}
+          className="relative z-10 rounded-none object-contain transition-transform duration-300 group-hover/logo:scale-105 drop-shadow-[0_4px_12px_rgba(255,46,117,0.45)]"
+        />
 
         {/* Vector SVG Emblem */}
         <svg
@@ -66,7 +80,7 @@ export function Logo({
           viewBox="0 0 100 100"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="relative z-10 transition-transform duration-300 group-hover/logo:scale-105 drop-shadow-[0_4px_12px_rgba(255,46,117,0.45)]"
+          className="hidden relative z-10 transition-transform duration-300 group-hover/logo:scale-105 drop-shadow-[0_4px_12px_rgba(255,46,117,0.45)]"
         >
           <defs>
             {/* Heart Bubble 3D Linear Gradient */}
@@ -203,14 +217,18 @@ export function Logo({
             </div>
 
             {/* Offline Badge */}
-            <span className={`font-mono font-bold tracking-wider rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30 uppercase ${config.badge}`}>
-              1.4k+ Offline
-            </span>
+            {showBadge && (
+              <span className={`font-mono font-bold tracking-wider rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30 uppercase ${config.badge}`}>
+                1.4k+ Offline
+              </span>
+            )}
           </div>
 
-          <p className={`${config.sub} text-zinc-400 font-medium tracking-tight mt-0.5`}>
-            Daily Rizz & Icebreaker Deck
-          </p>
+          {showSubtitle && (
+            <p className={`${config.sub} text-zinc-400 font-medium tracking-tight mt-0.5`}>
+              Daily Rizz & Icebreaker Deck
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -228,13 +246,21 @@ export function RizzHeartIcon({
   className?: string;
 }) {
   return (
+    <>
+    <img
+      src={BRAND_LOGO_SRC}
+      alt="RizzLine logo"
+      width={size}
+      height={size}
+      className={`rounded-none object-contain drop-shadow-[0_3px_10px_rgba(255,46,117,0.4)] ${className}`}
+    />
     <svg
       width={size}
       height={size}
       viewBox="0 0 100 100"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`drop-shadow-[0_3px_10px_rgba(255,46,117,0.4)] ${className}`}
+      className="hidden"
     >
       <defs>
         <linearGradient id="rizzHeartStandaloneGrad" x1="88" y1="15" x2="30" y2="82" gradientUnits="userSpaceOnUse">
@@ -297,5 +323,6 @@ export function RizzHeartIcon({
       <circle cx="54" cy="44" r="3.6" fill="#FFFFFF" />
       <circle cx="63" cy="44" r="3.6" fill="#FFFFFF" />
     </svg>
+    </>
   );
 }

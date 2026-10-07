@@ -1,0 +1,182 @@
+diff --git a/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java b/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
+index 36b773c..d5a0446 100644
+--- a/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
++++ b/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
+@@ -13,6 +13,8 @@ import android.widget.RelativeLayout;
+ import androidx.annotation.NonNull;
+ import androidx.coordinatorlayout.widget.CoordinatorLayout;
+ import androidx.core.util.Supplier;
++import androidx.core.view.ViewCompat;
++import androidx.core.view.WindowInsetsCompat;
+ import com.getcapacitor.JSObject;
+ import com.getcapacitor.PluginCall;
+ import com.getcapacitor.community.admob.helpers.AdViewIdHelper;
+@@ -49,6 +51,16 @@ public class BannerExecutor extends Executor {
+     }
+ 
+     public void showBanner(final PluginCall call) {
++        activitySupplier.get().runOnUiThread(() -> {
++            try {
++                showBannerOnUiThread(call);
++            } catch (Exception ex) {
++                call.reject(ex.getLocalizedMessage(), ex);
++            }
++        });
++    }
++
++    private void showBannerOnUiThread(final PluginCall call) {
+         final AdOptions adOptions = AdOptions.getFactory().createBannerOptions(call);
+         float density = contextSupplier.get().getResources().getDisplayMetrics().density;
+ 
+@@ -65,6 +77,7 @@ public class BannerExecutor extends Executor {
+ 
+         if (mAdView != null) {
+             updateExistingAdView(adOptions);
++            call.resolve();
+             return;
+         }
+ 
+@@ -132,10 +145,11 @@ public class BannerExecutor extends Executor {
+ 
+             // set Safe Area only for Android 15+
+             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+-                View rootView = activitySupplier.get().getWindow().getDecorView();
+-                rootView.setOnApplyWindowInsetsListener((v, insets) -> {
+-                    int bottomInset = insets.getSystemWindowInsetBottom();
+-                    int topInset = insets.getSystemWindowInsetTop();
++                // Keep Capacitor's decor listener intact (WebView/keyboard insets).
++                // The banner receives the remaining insets after its parent handles them.
++                ViewCompat.setOnApplyWindowInsetsListener(mAdViewLayout, (v, insets) -> {
++                    int bottomInset = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()).bottom;
++                    int topInset = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()).top;
+ 
+                     if ("TOP_CENTER".equals(adOptions.position)) {
+                         mAdViewLayoutParams.setMargins(margins[0], margins[1] + topInset, margins[2], margins[3]);
+@@ -167,6 +181,10 @@ public class BannerExecutor extends Executor {
+                 .get()
+                 .runOnUiThread(() -> {
+                     if (mAdViewLayout != null) {
++                        if (mAdView == null) {
++                            call.resolve();
++                            return;
++                        }
+                         mAdViewLayout.setVisibility(View.GONE);
+                         mAdView.pause();
+ 
+@@ -174,6 +192,8 @@ public class BannerExecutor extends Executor {
+ 
+                         notifyListeners(BannerAdPluginEvents.SizeChanged.getWebEventName(), sizeInfo);
+ 
++                        call.resolve();
++                    } else {
+                         call.resolve();
+                     }
+                 });
+@@ -206,10 +226,10 @@ public class BannerExecutor extends Executor {
+ 
+     public void removeBanner(final PluginCall call) {
+         try {
+-            if (mAdView != null) {
+-                activitySupplier
+-                    .get()
+-                    .runOnUiThread(() -> {
++            activitySupplier
++                .get()
++                .runOnUiThread(() -> {
++                    try {
+                         if (mAdView != null) {
+                             mViewGroup.removeView(mAdViewLayout);
+                             mAdViewLayout.removeView(mAdView);
+@@ -219,10 +239,11 @@ public class BannerExecutor extends Executor {
+                             final BannerAdSizeInfo sizeInfo = new BannerAdSizeInfo(0, 0);
+                             notifyListeners(BannerAdPluginEvents.SizeChanged.getWebEventName(), sizeInfo);
+                         }
+-                    });
+-            }
+-
+-            call.resolve();
++                        call.resolve();
++                    } catch (Exception ex) {
++                        call.reject(ex.getLocalizedMessage(), ex);
++                    }
++                });
+         } catch (Exception ex) {
+             call.reject(ex.getLocalizedMessage(), ex);
+         }
+@@ -270,8 +291,6 @@ public class BannerExecutor extends Executor {
+                 AdViewIdHelper.assignIdToAdView(adView, adOptions, adRequest, logTag, contextSupplier.get());
+                 // Add the AdView to the view hierarchy.
+                 mAdViewLayout.addView(adView);
+-                // Start loading the ad.
+-                adView.loadAd(adRequest);
+                 adView.setAdListener(
+                     new AdListener() {
+                         @Override
+@@ -296,14 +315,10 @@ public class BannerExecutor extends Executor {
+                                 return;
+                             }
+ 
+-                            mViewGroup.removeView(mAdViewLayout);
+-                            mAdViewLayout.removeView(adView);
+-                            adView.destroy();
+-                            mAdView = null;
+-
+-                            final BannerAdSizeInfo sizeInfo = new BannerAdSizeInfo(0, 0);
+-                            notifyListeners(BannerAdPluginEvents.SizeChanged.getWebEventName(), sizeInfo);
+-
++                            // Keep this AdView alive so an automatic refresh
++                            // failure does not destroy a displayed creative.
++                            // The SDK can refresh it and JavaScript can retry
++                            // an empty banner without creating another view.
+                             final AdMobPluginError adMobPluginError = new AdMobPluginError(adError);
+                             notifyListeners(BannerAdPluginEvents.FailedToLoad.getWebEventName(), adMobPluginError);
+ 
+@@ -348,6 +363,10 @@ public class BannerExecutor extends Executor {
+ 
+                 // Add AdViewLayout top of the WebView
+                 mViewGroup.addView(mAdViewLayout);
++                ViewCompat.requestApplyInsets(mAdViewLayout);
++                // Attach listeners and the view before loading; fast callbacks
++                // must reach JavaScript so it can track readiness and failures.
++                adView.loadAd(adRequest);
+             });
+     }
+ }
+diff --git a/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/helpers/FullscreenPluginCallback.kt b/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/helpers/FullscreenPluginCallback.kt
+index a03bd30..1b8cf8c 100644
+--- a/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/helpers/FullscreenPluginCallback.kt
++++ b/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/helpers/FullscreenPluginCallback.kt
+@@ -3,6 +3,7 @@ package com.getcapacitor.community.admob.helpers
+ import com.getcapacitor.JSObject
+ import com.getcapacitor.community.admob.models.AdMobPluginError
+ import com.getcapacitor.community.admob.models.LoadPluginEventNames
++import com.getcapacitor.community.admob.interstitial.InterstitialAdPluginPluginEvent
+ import com.google.android.gms.ads.AdError
+ import com.google.android.gms.ads.FullScreenContentCallback
+ import com.google.android.gms.common.util.BiConsumer
+@@ -17,6 +18,12 @@ class FullscreenPluginCallback(
+         notifyListenersFunction.accept(loadPluginObject.Showed, JSObject())
+     }
+ 
++    override fun onAdImpression() {
++        if (loadPluginObject === InterstitialAdPluginPluginEvent) {
++            notifyListenersFunction.accept("interstitialAdRecordedImpression", JSObject())
++        }
++    }
++
+     override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+         onCompleted?.run()
+         val adMobError = AdMobPluginError(adError)
+diff --git a/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/interstitial/AdInterstitialExecutor.java b/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/interstitial/AdInterstitialExecutor.java
+index c52d6b3..0bf7a9a 100644
+--- a/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/interstitial/AdInterstitialExecutor.java
++++ b/node_modules/@capacitor-community/admob/android/src/main/java/com/getcapacitor/community/admob/interstitial/AdInterstitialExecutor.java
+@@ -66,7 +66,7 @@ public class AdInterstitialExecutor extends Executor {
+             String errorMessage = "No Interstitial can be shown. It was not prepared or maybe it failed to be prepared.";
+             call.reject(errorMessage);
+             AdMobPluginError errorObject = new AdMobPluginError(-1, errorMessage);
+-            notifyListenersFunction.accept(InterstitialAdPluginPluginEvent.FailedToLoad, errorObject);
++            notifyListenersFunction.accept(InterstitialAdPluginPluginEvent.INSTANCE.getFailedToShow(), errorObject);
+             return;
+         }
+ 

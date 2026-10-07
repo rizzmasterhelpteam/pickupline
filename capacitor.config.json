@@ -1,0 +1,36 @@
+{
+  "appId": "com.rizzline.app",
+  "appName": "RizzLine",
+  "webDir": "dist",
+  "backgroundColor": "#09090b",
+  "android": {
+    "minWebViewVersion": 111
+  },
+  "server": {
+    "androidScheme": "https",
+    "errorPath": "unsupported-webview.html"
+  },
+  "plugins": {
+    "Keyboard": {
+      "resize": "body",
+      "style": "DARK"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 700,
+      "launchAutoHide": false,
+      "launchFadeOutDuration": 150,
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_INSIDE",
+      "backgroundColor": "#09090b",
+      "splashFullScreen": false,
+      "splashImmersive": false
+    },
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK",
+      "hidden": false,
+      "animation": "NONE"
+    }
+  }
+}

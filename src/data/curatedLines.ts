@@ -1,5 +1,6 @@
 import { CategoryInfo, CategoryKey, PickupLine } from '../types';
 import masterJson from './pickupLinesMaster.json';
+import { isCorruptedText, sanitizePickupLine } from '../utils/textSanitizer';
 
 export const CATEGORIES: CategoryInfo[] = [
   { id: 'all', label: 'All Vibes', emoji: '🔥', description: 'Over 1,460+ lines across every vibe' },
@@ -65,6 +66,7 @@ function getDeliveryTip(cat: CategoryKey, index: number): string {
   return tips[index % tips.length];
 }
 
+const seenTexts = new Set<string>();
 export const CURATED_PICKUP_LINES: PickupLine[] = (masterJson as Array<{ text: string; category: string; tip?: string }>).map((item, index) => {
   const category = (item.category || 'smooth') as CategoryKey;
   // Deterministic realistic reactions based on index
@@ -72,7 +74,7 @@ export const CURATED_PICKUP_LINES: PickupLine[] = (masterJson as Array<{ text: s
   const baseCheesy = 30 + ((index * 23) % 180);
   const baseCringe = 5 + ((index * 11) % 40);
 
-  return {
+  return sanitizePickupLine({
     id: `${category}-${index + 1}`,
     text: item.text,
     category,
@@ -83,8 +85,15 @@ export const CURATED_PICKUP_LINES: PickupLine[] = (masterJson as Array<{ text: s
       cheesy: baseCheesy,
       cringe: baseCringe,
     },
-  };
+  });
+}).filter(line => {
+  if (isCorruptedText(line.text) || seenTexts.has(line.text)) return false;
+  seenTexts.add(line.text);
+  return true;
 });
+
+export const CATALOG_BY_TEXT = new Map(CURATED_PICKUP_LINES.map(line => [line.text, line]));
+export const CATALOG_BY_ID = new Map(CURATED_PICKUP_LINES.map(line => [line.id, line]));
 
 // Category lookup map for high performance O(1) random retrieval
 export const LINES_BY_CATEGORY: Record<CategoryKey, PickupLine[]> = {

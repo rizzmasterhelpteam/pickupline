@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive foreground layers have a 108-unit canvas and a 66-unit circular safe
+    zone. This artwork already contains a black safety margin around its glowing
+    border, so the visible border stays inside the safe zone while the logo remains
+    large enough to read at launcher size.
+
+    Percentages scale with the drawable bounds. Fixed dp padding changes the
+    artwork's proportions between the launcher, Settings and smaller icons.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="26%"
+    android:insetTop="26%"
+    android:insetRight="26%"
+    android:insetBottom="26%">
+    <bitmap
+        android:antialias="true"
+        android:filter="true"
+        android:gravity="fill"
+        android:src="@drawable/rizzline_launcher_art" />
+</inset>

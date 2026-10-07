@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RizzLine</string>
+    <string name="title_activity_main">RizzLine</string>
+    <string name="package_name">com.rizzline.app</string>
+    <string name="custom_url_scheme">com.rizzline.app</string>
+</resources>
