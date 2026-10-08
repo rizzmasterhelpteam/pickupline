@@ -3,6 +3,49 @@ import assert from 'node:assert/strict';
 import { Capacitor } from '@capacitor/core';
 import { AdsController } from '../src/services/ads';
 import { INTERSTITIAL_COOLDOWN_MS, INTERSTITIAL_PRELOAD_LEAD_MS, INTERSTITIAL_TTL_MS } from '../src/services/adPolicy';
+import { getLoveCardUnlockUntil, grantLoveCardUnlock, LOVE_CARD_UNLOCK_MS } from '../src/services/loveCardUnlock';
+
+test('Love Card unlock persists for exactly 30 minutes and rejects invalid stored expiry', t => {
+  t.mock.timers.enable({ apis: ['Date'], now: 500000 });
+  const values = new Map<string, string>();
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  } });
+  t.after(() => { if (original) Object.defineProperty(globalThis, 'localStorage', original); else Reflect.deleteProperty(globalThis, 'localStorage'); });
+  assert.equal(getLoveCardUnlockUntil(), 0);
+  const until = grantLoveCardUnlock();
+  assert.equal(until, Date.now() + LOVE_CARD_UNLOCK_MS);
+  assert.equal(getLoveCardUnlockUntil(), until);
+  t.mock.timers.tick(LOVE_CARD_UNLOCK_MS);
+  assert.equal(getLoveCardUnlockUntil(), 0);
+  values.set('rizzline_love_card_unlock_until_v1', 'NaN');
+  assert.equal(getLoveCardUnlockUntil(), 0);
+});
+
+for (const earns of [true, false]) {
+  test(`reward dismissal ${earns ? 'with' : 'without'} earned callback grants ${earns ? 'one' : 'no'} unlock`, async t => {
+    const { controller, state, AdMob } = setup(t);
+    const handlers = new Map<string, () => void>();
+    Object.assign(state.module, { RewardAdPluginEvents: { Rewarded: 'reward', Dismissed: 'dismiss', FailedToShow: 'failed', Showed: 'show' } });
+    t.mock.method(controller, 'start', async () => {});
+    AdMob.addListener = async (event, handler) => { handlers.set(event as string, handler as () => void); return { remove: async () => { handlers.delete(event as string); } }; };
+    AdMob.prepareRewardVideoAd = async () => {};
+    AdMob.showRewardVideoAd = async () => {
+      handlers.get('show')?.();
+      if (earns) { handlers.get('reward')?.(); handlers.get('reward')?.(); }
+      handlers.get('dismiss')?.();
+      return { amount: 1, type: 'unlock' };
+    };
+    let grants = 0;
+    assert.equal(await controller.showLoveCardReward(() => { grants++; }), earns);
+    assert.equal(grants, earns ? 1 : 0);
+    assert.equal(controller.getSnapshot().showing, false);
+    assert.equal(handlers.size, 0);
+    assert.equal(await controller.maybeShowInterstitial(), false);
+  });
+}
 
 // Fake the native bridge and clock: these tests never request real ads.
 type Harness = {

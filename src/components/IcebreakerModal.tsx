@@ -8,6 +8,9 @@ import { copyText } from '../utils/clipboard';
 import { tapFeedback } from '../utils/haptics';
 import { useTransientMessage } from '../hooks/useTransientMessage';
 import { useDialog } from '../hooks/useDialog';
+import { Capacitor } from '@capacitor/core';
+import { ads } from '../services/ads';
+import { getLoveCardUnlockUntil, grantLoveCardUnlock } from '../services/loveCardUnlock';
 
 interface IcebreakerModalProps {
   isOpen: boolean;
@@ -28,6 +31,35 @@ export const IcebreakerModal = memo(function IcebreakerModal({ isOpen, onClose, 
   const [copied, showCopied] = useTransientMessage(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const processingRef = useRef(false);
+  const [unlockUntil, setUnlockUntil] = useState(getLoveCardUnlockUntil);
+  const [unlockPrompt, setUnlockPrompt] = useState(false);
+  const [watchingAd, setWatchingAd] = useState(false);
+  const [clock, setClock] = useState(Date.now());
+  const unlocked = !Capacitor.isNativePlatform() || unlockUntil > clock;
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = setInterval(() => setClock(Date.now()), 30000);
+    const expiry = unlockUntil > Date.now() ? setTimeout(() => setClock(Date.now()), unlockUntil - Date.now()) : null;
+    if (Capacitor.getPlatform() === 'android' && getLoveCardUnlockUntil() === 0) {
+      void ads.prepareLoveCardReward().catch(() => {});
+    }
+    return () => { clearInterval(timer); if (expiry) clearTimeout(expiry); };
+  }, [isOpen, unlockUntil]);
+  const watchReward = async () => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    setWatchingAd(true);
+    try {
+      const earned = await ads.showLoveCardReward(() => {
+        setUnlockUntil(grantLoveCardUnlock());
+        setClock(Date.now());
+      });
+      if (earned) { setUnlockPrompt(false); showToast('Love Card sharing unlocked for 30 minutes!'); }
+      else showToast('Finish the ad to unlock sharing.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Ad unavailable. Please try again.');
+    } finally { processingRef.current = false; setWatchingAd(false); }
+  };
   const [toastMessage, showToast] = useTransientMessage<string | null>(null, 2500);
   const dialogRef = useDialog(isOpen, onClose);
   useEffect(() => {
@@ -68,6 +100,7 @@ export const IcebreakerModal = memo(function IcebreakerModal({ isOpen, onClose, 
   };
 
   const handleShareCardImage = async () => {
+    if (Capacitor.isNativePlatform() && unlockUntil <= Date.now()) { setUnlockPrompt(true); return; }
     if (processingRef.current) return;
     processingRef.current = true;
     setIsProcessing(true);
@@ -90,6 +123,7 @@ export const IcebreakerModal = memo(function IcebreakerModal({ isOpen, onClose, 
   };
 
   const handleDownloadImage = async () => {
+    if (Capacitor.isNativePlatform() && unlockUntil <= Date.now()) { setUnlockPrompt(true); return; }
     if (processingRef.current) return;
     processingRef.current = true;
     setIsProcessing(true);
@@ -112,7 +146,7 @@ export const IcebreakerModal = memo(function IcebreakerModal({ isOpen, onClose, 
     <div className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="icebreaker-dialog-title">
         {/* Backdrop */}
         <div
-          onClick={onClose}
+          onClick={() => { if (!processingRef.current) onClose(); }}
           className="overlay-backdrop fixed inset-0 bg-black/80"
         />
 
@@ -137,6 +171,7 @@ export const IcebreakerModal = memo(function IcebreakerModal({ isOpen, onClose, 
             <button
               type="button"
               onClick={onClose}
+              disabled={watchingAd}
               aria-label="Close love note card preview"
               className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/[0.07] hover:text-white"
             >
@@ -223,12 +258,27 @@ export const IcebreakerModal = memo(function IcebreakerModal({ isOpen, onClose, 
             )}
 
           {/* Action Buttons: Share Image, Save Image & Copy Text */}
+          {Capacitor.isNativePlatform() && (
+            <p className="text-center text-[11px] text-zinc-400" role="status">
+              {unlocked ? `Sharing unlocked · ${Math.max(1, Math.ceil((unlockUntil - clock) / 60000))} min left` : 'Watch one ad for 30 minutes of unlimited card sharing'}
+            </p>
+          )}
+          {unlockPrompt && (
+            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-center">
+              <h4 className="text-sm font-bold text-white">Unlock Love Card sharing</h4>
+              <p className="my-2 text-xs text-zinc-300">Watch one ad to share and save unlimited cards for 30 minutes. Your preview and text sharing stay free.</p>
+              <button type="button" disabled={watchingAd} onClick={() => { void watchReward(); }} className="min-h-11 w-full rounded-xl bg-rose-500 px-3 text-sm font-bold text-white disabled:opacity-60">
+                {watchingAd ? 'Loading ad…' : 'Watch ad · unlock 30 minutes'}
+              </button>
+              <button type="button" disabled={watchingAd} onClick={() => setUnlockPrompt(false)} className="min-h-10 w-full text-xs text-zinc-400">Not now</button>
+            </div>
+          )}
           <div className="flex flex-col gap-2">
             {/* Primary Action: Share Story Card Image */}
             <button
               type="button"
               onClick={handleShareCardImage}
-              disabled={isProcessing}
+              disabled={isProcessing || watchingAd}
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-gradient-to-r from-rose-500 via-rose-600 to-amber-500 py-3 text-xs font-bold tracking-wide text-white shadow-lg shadow-rose-500/25 transition-all active:scale-[0.98] disabled:opacity-60"
             >
               {isProcessing ? (
@@ -249,7 +299,7 @@ export const IcebreakerModal = memo(function IcebreakerModal({ isOpen, onClose, 
               <button
                 type="button"
                 onClick={handleDownloadImage}
-                disabled={isProcessing}
+                disabled={isProcessing || watchingAd}
                 className="flex min-h-11 items-center justify-center gap-1.5 rounded-2xl border border-white/[0.08] bg-white/[0.055] py-2.5 text-xs font-semibold text-zinc-200 transition-all hover:bg-white/[0.09] active:scale-[0.97] disabled:opacity-60"
                 title="Save 1080x1920 love note card"
               >

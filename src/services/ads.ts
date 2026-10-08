@@ -4,6 +4,7 @@ import { canShowInterstitial, INTERSTITIAL_COOLDOWN_MS, INTERSTITIAL_PRELOAD_LEA
 export const AD_UNITS = {
   banner: 'ca-app-pub-7381421031784616/7513209189',
   interstitial: 'ca-app-pub-7381421031784616/4088969499',
+  rewarded: 'ca-app-pub-7381421031784616/8184203153',
 };
 const RuntimeInfo = registerPlugin<{ getInfo(): Promise<{ requiresGdprConsent: boolean }> }>('RuntimeInfo');
 type AdModule = typeof import('@capacitor-community/admob');
@@ -29,6 +30,10 @@ export class AdsController {
   private busyWithConsent = false;
   private disposed = false;
   private interstitialLoading = false;
+  private rewardedBusy = false;
+  private rewardedLoadedAt: number | null = null;
+  private rewardedLoad: Promise<void> | null = null;
+  private rewardedRetryAt = 0;
   private adRequestGeneration = 0;
   private loadedAt: number | null = null;
   private startedAt = Date.now();
@@ -252,6 +257,76 @@ export class AdsController {
     void this.syncBanner();
   }
   refreshViewport() { void this.syncBanner(); }
+  /** Warm one reward when the preview opens; never request repeatedly while idle. */
+  async prepareLoveCardReward(): Promise<void> {
+    await this.start();
+    if (!this.module || !this.ready || !this.adRequestsAllowed || !this.online || !this.active || this.disposed) {
+      throw new Error('Ads are unavailable right now. Please try again shortly.');
+    }
+    if (this.rewardedLoadedAt !== null && Date.now() - this.rewardedLoadedAt < INTERSTITIAL_TTL_MS) return;
+    if (Date.now() < this.rewardedRetryAt) throw new Error('No ad available right now. Please try again in a minute.');
+    if (!this.rewardedLoad) {
+      const generation = this.adRequestGeneration;
+      this.rewardedLoad = this.module.AdMob.prepareRewardVideoAd({ adId: AD_UNITS.rewarded, isTesting: false })
+        .then(() => {
+          if (generation !== this.adRequestGeneration || this.disposed || !this.adRequestsAllowed) throw new Error('Ad availability changed. Please retry.');
+          this.rewardedLoadedAt = Date.now();
+          this.rewardedRetryAt = 0;
+        }).catch(error => { this.rewardedRetryAt = Date.now() + 60000; throw error; }).finally(() => { this.rewardedLoad = null; });
+    }
+    await this.rewardedLoad;
+  }
+  async showLoveCardReward(onEarned: () => void): Promise<boolean> {
+    if (this.rewardedBusy || this.state.showing || this.busyWithConsent || this.privacyOpen) return false;
+    this.rewardedBusy = true;
+    this.cancelPreload();
+    this.update({ showing: true });
+    const handles: PluginListenerHandle[] = [];
+    let earned = false;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+    try {
+      // Bound loading, while allowing a late successful load to remain cached.
+      await Promise.race([
+        this.prepareLoveCardReward(),
+        new Promise<never>((_, reject) => { watchdog = setTimeout(() => reject(new Error('Ad loading timed out. Please try again.')), 20000); }),
+      ]);
+      clearTimeout(watchdog);
+      if (!this.module || !this.active || !this.online || !this.adRequestsAllowed) throw new Error('Ad unavailable. Please retry.');
+      const { AdMob, RewardAdPluginEvents: events } = this.module;
+      const dismissed = new Promise<void>((resolve, reject) => {
+        const register = async () => {
+          handles.push(await AdMob.addListener(events.Rewarded, () => {
+            if (earned) return;
+            earned = true;
+            onEarned();
+          }));
+          handles.push(await AdMob.addListener(events.Dismissed, () => resolve()));
+          handles.push(await AdMob.addListener(events.FailedToShow, () => reject(new Error('Ad could not open. Please retry.'))));
+          handles.push(await AdMob.addListener(events.Showed, () => {
+            clearTimeout(watchdog);
+            this.lastShownAt = Date.now();
+            this.actions = this.swipeActions = 0;
+          }));
+          await this.syncBanner();
+          this.rewardedLoadedAt = null;
+          watchdog = setTimeout(() => reject(new Error('Ad could not open. Please retry.')), 15000);
+          // The promise alone is not proof that the reward was earned.
+          void AdMob.showRewardVideoAd().catch(reject);
+        };
+        void register().catch(reject);
+      });
+      await dismissed;
+      return earned;
+    } finally {
+      clearTimeout(watchdog);
+      await Promise.allSettled(handles.map(handle => handle.remove()));
+      this.rewardedBusy = false;
+      this.update({ showing: false });
+      if (earned) this.lastShownAt = Date.now();
+      void this.syncBanner();
+      this.schedulePreload(1000);
+    }
+  }
   private syncBanner(): Promise<void> {
     this.bannerSyncPending = true;
     if (!this.bannerSync) {
@@ -452,6 +527,7 @@ export class AdsController {
       await this.module.AdMob.showPrivacyOptionsForm();
       if (this.disposed) return;
       this.adRequestGeneration++;
+      this.rewardedLoadedAt = null;
       this.loadedAt = null;
       this.adRequestsAllowed = false;
       if (this.bannerCreated) await this.module.AdMob.removeBanner();

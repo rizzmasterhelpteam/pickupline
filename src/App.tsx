@@ -146,6 +146,7 @@ export default function App() {
     setStoryLine(line);
   }, [cancelSwipeAd]);
   const handleCloseIcebreaker = useCallback(() => {
+    if (ads.getSnapshot().showing) return;
     overlayRef.current = false;
     setStoryLine(null);
   }, []);
